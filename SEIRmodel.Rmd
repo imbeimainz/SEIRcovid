@@ -1,0 +1,55 @@
+---
+title: "SEIRmodel"
+author: "PM"
+date: "24 März 2020"
+output: 
+  html_document:
+    toc: TRUE
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(deSolve)
+require(plotly)
+```
+
+## Specify Model
+```{r}
+SEIRmod <- function(Time, State, Pars) {
+  with(as.list(c(State,Pars)), {
+    beta  <-  R0 * gamma
+
+    dSS <- - (beta * SS * II)/N
+    dEE <- beta * SS * II / N - sigma * EE 
+    dII <- sigma * EE - gamma * II
+    dRR <- gamma * II
+
+    list(c(dSS,dEE,dII,dRR))
+  })
+}
+```
+
+## Specifiy Parameters 
+```{r}
+SEIRini <- c(SS=8.25e7, EE=6e4, II=3e4, RR=0)
+times   <- seq(0, 52, by=1)   ## in weeks
+Pars    <- c(N     = sum(SEIRini),
+             R0    = 1.8,
+             gamma = 1/2,     ## recovery rate (per week)
+             sigma = .9)      ## flow rate from Exposed to Infected (per week)
+```
+
+## Run and plot
+```{r}
+SEIRsim <- deSolve::ode(y=SEIRini,    times=times, 
+                        func=SEIRmod, parms=Pars)
+
+plot_ly(data=as.data.frame(SEIRsim), x=~time, y=~SS,
+        name='Susceptible', type='scatter', mode='lines') %>%
+  add_trace(y=~EE, name='Exposed')%>% 
+  add_trace(y=~II, name='Infected') %>%
+  add_trace(y=~RR, name='Recovered') %>%
+  layout(yaxis=list(type='log',title="Individuals"))
+```
+
