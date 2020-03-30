@@ -1,0 +1,48 @@
+---
+title: "Icelandic Data"
+author: "PM"
+date: "30 März 2020"
+output: 
+  html_document:
+    toc: TRUE
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(data.table)
+library(plotly)
+library(Hmisc)
+
+NA_to_null = function(DT) {
+  for (i in names(DT))
+    DT[is.na(get(i)), (i):=0]
+}
+```
+
+## Prevalence in Iceland 
+
+```{r, fig.width=9}
+tests     <- fread("Sheet1.csv")
+positives <- fread("Sheet2.csv")
+dat <- merge(tests,positives,by="V1",suffixes=c("_tests","_pos"))
+dat[,V1:=as.Date(paste0(dat$V1,".2020"),format="%d.%m.%Y")]
+setkey(dat,"V1")
+NA_to_null(dat)
+
+dat[,':='(cumdeCodeTests=cumsum(`deCODE genetics_tests`),
+          cumdeCodePos  =cumsum(`deCODE genetics_pos`),
+          cumNUHITests  =cumsum(`NUHI*_tests`),
+          cumNUHIPos    =cumsum(`NUHI*_pos`))]
+dat <- cbind(dat,dat[,binconf(cumdeCodePos,cumdeCodeTests)])
+
+Pop <- 360000 ## Icelandic population
+plot_ly(data=dat, y = ~PointEst, x=~ V1, type="scatter", mode="line",
+        line=list(color="orange"), name="Estimated Prevalence") %>%
+  add_trace(y= ~Lower, line=list(dash='dash'), name="Lower 95%-CI") %>%
+  add_trace(y=~Upper, line=list(dash='dash'), name="Upper 95%-CI") %>%
+  add_trace(y= ~cumNUHIPos/Pop,line=list(color="navy"), name="Tested Positive") %>%
+  layout(xaxis=list(title="Date"),yaxis=list(title="Share of Population"))
+  
+```
+
